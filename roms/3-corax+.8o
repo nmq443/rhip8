@@ -1,0 +1,618 @@
+# This is an adaptation and extension of the CHIP-8 test rom from corax89,
+# original can be found here:
+# https://github.com/corax89/chip8-test-rom
+
+# MIT License
+#
+# Copyright (c) 2019 corax89, 2023,2024 Timendus
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+:alias x0 v8
+:alias x1 v9
+:alias x2 vA
+:alias y  vB
+
+:macro drawop A B {
+  i := A
+  sprite x0 y 4
+
+  i := B
+  sprite x1 y 4
+}
+
+: test-2X-0E
+  v0 := 1
+  return
+  # These opcodes will run if the interpreter doesn't have return (00EE) implemented:
+  v0 := 2
+  jump test-2X-0E-hard-return
+
+: main
+  clear
+
+  # Display current version
+  x0 := 51
+  y := 27
+  i := version-0-0
+  sprite x0 y 4
+  x0 := 59
+  i := version-1-0
+  sprite x0 y 4
+
+  # Show output in the first column
+  x0 := 0
+  x1 := 4
+  x2 := 8
+  y := 1
+
+#################
+# Test 3xNN
+
+  v5 := 42
+  v6 := 43
+  drawop im3 imX
+  i := image-no
+  if v6 != 42 then i := image-ok
+  if v6 != 43 then i := image-no
+  sprite x2 y 4
+
+#################
+# Test 4xNN
+
+  y := 6
+  drawop im4 imX
+  i := image-no
+  if v5 == 42 then i := image-ok
+  if v5 == 43 then i := image-no
+  sprite x2 y 4
+
+#################
+# Test 5xy0
+
+  y := 11
+  drawop im5 imX
+  i := image-no
+  if v5 != v6 then i := image-ok
+  if v5 != v5 then i := image-no
+  v3 := 7
+  v4 := 7
+  if v3 != v4 then i := image-no
+  sprite x2 y 4
+
+#################
+# Test 7xNN
+
+  y := 16
+  drawop im7 imX
+  i := image-no
+  v6 += 255
+  if v6 == 42 then i := image-ok
+  sprite x2 y 4
+
+#################
+# Test 9xy0
+
+  y += 5
+  drawop im9 imX
+  i := image-no
+  if v5 == v6 then i := image-ok
+  if v5 == vb then i := image-no
+  sprite x2 y 4
+
+  # Show output in the second column
+  x0 := 13
+  x1 := 17
+  x2 := 21
+  y := 1
+
+#################
+# Test 1NNN (displayed as 1X)
+
+  drawop im1 imX
+  i := image-ok
+  jump test-1X-pass
+  i := image-no
+: test-1X-pass
+  sprite x2 y 4
+
+#################
+# Test calling subroutines (2NNN, displayed as 2X)
+
+  y += 5
+  drawop im2 imX
+  v0 := 0
+  test-2X-0E    # Attempt to run a subroutine
+: test-2X-0E-hard-return
+  i := image-ok
+  if v0 == 0 then i := image-no  # Subroutine was never called
+  sprite x2 y 4
+
+#################
+# Test returning from subroutines (00EE, displayed as 0E)
+
+  y += 5
+  drawop im0 imE
+  i := image-ok
+  if v0 == 2 then i := image-no  # Return didn't work
+  if v0 != 0 then sprite x2 y 4  # If subroutine wasn't called, return wasn't tested
+
+#################
+# Test 8xy0
+
+  y += 5
+  drawop im8 im0
+  i := image-no
+  v5 := 42
+  v7 := 0
+  v7 := v5
+  if v7 == 42 then i := image-ok
+  sprite x2 y 4
+
+#################
+# Test 8xy1
+
+  y += 5
+  drawop im8 im1
+  i := image-no
+  v6 := 11
+  v7 := 42
+  v7 |= v6
+  if v7 == 43 then i := image-ok
+  sprite x2 y 4
+
+  # Show output in the third column
+  x0 := 26
+  x1 := 30
+  x2 := 34
+  y  := 1
+
+#################
+# Test 8xy2
+
+  drawop im8 im2
+  i := image-no
+  v6 := 120
+  v7 := 31
+  v7 &= v6
+  if v7 == 24 then i := image-ok
+  sprite x2 y 4
+
+#################
+# Test 8xy3
+
+  y += 5
+  drawop im8 im3
+  i := image-no
+  v6 := 120
+  v7 := 31
+  v7 ^= v6
+  if v7 == 103 then i := image-ok
+  sprite x2 y 4
+
+#################
+# Test 8xy4
+
+  y += 5
+  drawop im8 im4
+  i := image-no
+  v6 := 140
+  v7 := 140
+  v7 += v6
+  if v7 == 24 then i := image-ok
+  v6 := 0x35
+  v7 := 0x1B
+  v7 += v6
+  if v7 != 0x50 then i := image-no
+  if v6 != 0x35 then i := image-no
+  v6 += v6
+  if v6 != 0x6A then i := image-no
+  sprite x2 y 4
+
+#################
+# Test 8xy5
+
+  y += 5
+  drawop im8 im5
+  i := image-no
+  v6 := 140
+  v7 := 120
+  v7 -= v6
+  if v7 == 236 then i := image-ok
+  sprite x2 y 4
+
+#################
+# Test 8xy7
+
+  y += 5
+  drawop im8 im7
+  i := image-no
+  v6 := 120
+  v7 := 140
+  v7 =- v6
+  if v7 == 236 then i := image-ok
+  sprite x2 y 4
+
+  # Show output in the fourth column
+  x0 := 39
+  x1 := 43
+  x2 := 47
+  y  := 1
+
+#################
+# Test 8xy6
+
+  drawop im8 im6
+  i := image-no
+  v6 := 15
+  v6 >>= v6
+  if v6 == 7 then i := image-ok
+  sprite x2 y 4
+
+#################
+# Test 8xyE
+
+  y += 5
+  drawop im8 imE
+  i := image-no
+  v6 := 224
+  v6 <<= v6
+  if v6 == 192 then i := image-ok
+  sprite x2 y 4
+
+#################
+# Test Fx65
+
+  y += 5
+  drawop imF im6
+  i := scratchpad
+  load v1
+  i := image-ok
+  if v0 != 0xAA then i := image-no
+  if v1 != 0x55 then i := image-no
+  sprite x2 y 4
+
+#################
+# Test Fx55
+
+  y += 5
+  drawop imF im5
+  i := scratchpad
+  v0 := 0
+  v1 := 48
+  save v1
+  i := scratchpad
+  load v0
+  v1 := v0
+  i := scratchpad-plus-1
+  load v0
+  i := image-ok
+  if v0 != 48 then i := image-no
+  if v1 != 0 then i := image-no
+  sprite x2 y 4
+
+#################
+# Test Fx33
+
+  y += 5
+  drawop imF im3
+
+  # N >= 100
+  i := scratchpad
+  v6 := 137
+  bcd v6
+  load v2
+  i := image-no
+  if v0 != 1 then jump fx33-fail
+  if v1 != 3 then jump fx33-fail
+  if v2 != 7 then jump fx33-fail
+  
+  # N < 100
+  i := scratchpad
+  v6 := 65
+  bcd v6
+  load v2
+  i := image-no  
+  if v0 != 0 then jump fx33-fail
+  if v1 != 6 then jump fx33-fail
+  if v2 != 5 then jump fx33-fail
+  
+  # N < 10
+  i := scratchpad
+  v6 := 4
+  bcd v6
+  load v2
+  i := image-no
+  if v0 != 0 then jump fx33-fail
+  if v1 != 0 then jump fx33-fail
+  if v2 != 4 then jump fx33-fail
+	
+  i := image-ok
+: fx33-fail
+  sprite x2 y 4
+
+  # Show output in the fifth column
+  x0 := 52
+  x1 := 56
+  x2 := 60
+  y  := 1
+
+#################
+# Test Fx1E
+
+  drawop imF imE
+  i := image-no
+  v6 := 4
+  i += v6
+  sprite x2 y 4
+
+#################
+# Test Fx29
+
+  y += 5
+  drawop imF im9
+  vE := 8
+  i := hex vE
+  load v4
+  v5 := v0
+  v6 := v1
+  v7 := v2
+  v0 |= v1
+  v0 |= v2
+  v0 |= v3
+  v0 |= v4
+  if v0 == 0 then jump fx29-fail
+  v1 := 0x0F
+  v1 &= v0
+  if v1 != 0 then jump fx29-fail
+  vD := 8
+  i := hex vD
+  load v2
+  if v0 != v5 then jump fx29-fail
+  if v1 != v6 then jump fx29-fail
+  if v2 != v7 then jump fx29-fail
+  vD := 0
+  i := hex vD
+  load v2
+  v0 ^= v5
+  v1 ^= v6
+  v2 ^= v7
+  v0 |= v1
+  v0 |= v2
+  i := image-ok
+  if v0 != 0 then jump fx29-done
+: fx29-fail
+  i := image-no
+: fx29-done
+  sprite x2 y 4
+
+#################
+# Test Fx15 and Fx07 (displayed as DT)
+
+  y += 5
+  drawop imD imT
+  v6 := 42
+  v7 := 0
+  delay := v6
+  v7 := delay
+  i := image-ok
+  if v7 == 42 then jump dt-done
+  delay := v6
+  v7 := delay
+  if v7 != 42 then i := image-no
+: dt-done
+  sprite x2 y 4
+
+#################
+# Test CxNN (displayed as CX)
+
+  y += 5
+  drawop imC imX
+  v1 := 0     # OR of the 0xA5 results
+  v2 := 0xFF  # AND of the 0xA5 results
+  v3 := 0     # OR of the 0x5A results
+  v4 := 0xFF  # AND of the 0x5A results
+  vC := 0     # draws so far
+  i := image-no
+  loop
+    vC += 1
+    if vC == 64 then jump cxnn-fail
+    v6 := random 0xA5
+    v1 |= v6
+    v2 &= v6
+    v6 := random 0x5A
+    v3 |= v6
+    v4 &= v6
+    v0 := v2
+    v0 |= v4
+    if v1 != 0xA5 then v0 := 1
+    if v3 != 0x5A then v0 := 1
+    while v0 != 0
+  again
+  i := image-ok
+: cxnn-fail
+  sprite x2 y 4
+
+#################
+# Test to see if registers are 8 bit, as thoroughly as possible.
+
+  y += 5
+  drawop imV imX
+  i := image-ok
+
+  # Addition opcodes should not allow us to overflow
+  v6 := 255
+  v6 += 10
+  if v6 != 9 then i := image-no
+  v6 >>= v6
+  if v6 != 4 then i := image-no
+  v6 := 255
+  v0 := 10
+  v6 += v0
+  if v6 != 9 then i := image-no
+  v6 >>= v6
+  if v6 != 4 then i := image-no
+
+  # Shift opcodes should not retain bits
+  v6 := 255
+  v6 <<= v6
+  v6 >>= v6
+  if v6 != 127 then i := image-no
+  v6 >>= v6
+  v6 <<= v6
+  if v6 != 126 then i := image-no
+
+  # Subtraction should wrap back to positive
+  v6 := 5
+  v6 -= 10
+  if v6 != 251 then i := image-no
+  v6 := 5
+  v6 -= v0
+  if v6 != 251 then i := image-no
+  v6 := 5
+  v0 =- v6
+  if v0 != 251 then i := image-no
+
+  sprite x2 y 4
+
+#################
+# Test is done!
+
+  loop again
+
+: scratchpad
+  0xAA
+: scratchpad-plus-1
+  0x55 0
+
+# Positive and negative images
+: image-no
+  0b00000000
+  0b10100000
+  0b01000000
+  0b10100000
+: image-ok
+  0b00000000
+  0b10100000
+  0b11000000
+  0b10000000
+
+# Individual characters, some taken from Corax89' test.
+: im0
+  0b11100000
+  0b10100000
+  0b10100000
+  0b11100000
+: im1
+  0b11000000
+  0b01000000
+  0b01000000
+  0b11100000
+: im2
+  0b11100000
+  0b00100000
+  0b11000000
+  0b11100000
+: im3
+  0b11100000
+  0b01100000
+  0b00100000
+  0b11100000
+: im4
+  0b10100000
+  0b11100000
+  0b00100000
+  0b00100000
+: im5
+  0b11100000
+  0b11000000
+  0b00100000
+  0b11000000
+: im6
+  0b01100000
+  0b10000000
+  0b11100000
+  0b11100000
+: im7
+  0b11100000
+  0b00100000
+  0b01000000
+  0b01000000
+: im8
+  0b11100000
+  0b11100000
+  0b10100000
+  0b11100000
+: im9
+  0b11100000
+  0b11100000
+  0b00100000
+  0b11000000
+: imA
+  0b01000000
+  0b10100000
+  0b11100000
+  0b10100000
+: imB
+  0b11000000
+  0b11100000
+  0b10100000
+  0b11100000
+: imC
+  0b11100000
+  0b10000000
+  0b10000000
+  0b11100000
+: imD
+  0b11000000
+  0b10100000
+  0b10100000
+  0b11000000
+: imE
+  0b11100000
+  0b11000000
+  0b10000000
+  0b11100000
+: imF
+  0b11100000
+  0b10000000
+  0b11000000
+  0b10000000
+: imT
+  0b11100000
+  0b01000000
+  0b01000000
+  0b01000000
+: imV
+  0b00000000
+  0b10100000
+  0b10100000
+  0b01000000
+: imX
+  0b10100000
+  0b01000000
+  0b10100000
+  0b10100000
+
+: version
+: version-0-0
+  0x0a 0xae 0xa2 0x42
+: version-1-0
+  0x38 0x18 0x08 0xb8
+
