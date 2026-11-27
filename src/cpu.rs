@@ -36,6 +36,8 @@ pub struct CPU {
     pub memory: [u8; MEMORY_SIZE],
     pub display: [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT],
     pub keyboard: [bool; 16],
+    pub sound_timer: u8,
+    pub delay_timer: u8,
 }
 
 impl CPU {
@@ -53,6 +55,8 @@ impl CPU {
             memory: memory,
             display: [false; 64 * 32],
             keyboard: [false; 16],
+            sound_timer: 0,
+            delay_timer: 0
         }
     }
 
@@ -133,7 +137,7 @@ impl CPU {
             0x7 => {
                 self.v[x] = self.v[x].wrapping_add(kk);
             }
-            0x8 => match kk {
+            0x8 => match n {
                 0x0 => {
                     self.v[x] = self.v[y];
                 }
@@ -152,22 +156,22 @@ impl CPU {
                     self.v[0x0F] = carry as u8;
                 }
                 0x5 => {
-                    let (sub, carry) = self.v[x].overflowing_sub(self.v[y]);
-                    self.v[x] = sub;
-                    self.v[0x0F] = carry as u8;
+                    let (res, borrow) = self.v[x].overflowing_sub(self.v[y]);
+                    self.v[x] = res;
+                    self.v[0xF] = !borrow as u8;
                 }
                 0x6 => {
-                    self.v[0x0F] = self.v[x] & 0x1;
                     self.v[x] = self.v[x] >> 1;
+                    self.v[0x0F] = self.v[x] & 0x1;
                 }
                 0x7 => {
-                    let (sub, carry) = self.v[y].overflowing_sub(self.v[x]);
-                    self.v[y] = sub;
-                    self.v[0x0F] = !carry as u8;
+                    let (sub, borrow) = self.v[y].overflowing_sub(self.v[x]);
+                    self.v[x] = sub;
+                    self.v[0x0F] = !borrow as u8;
                 }
                 0xE => {
-                    self.v[0x0F] = self.v[x] >> 7;
                     self.v[x] = self.v[x] << 1;
+                    self.v[0x0F] = self.v[x] >> 7;
                 }
                 _ => {}
             },
@@ -220,18 +224,29 @@ impl CPU {
                 _ => {}
             },
             0xF => {
-                let lower_byte = opcode & 0x0f;
-                match lower_byte {
-                    0x7 => {}
-                    0xA => {}
-                    0x15 => {}
-                    0x18 => {}
+                match kk {
+                    0x7 => {
+                        self.v[x] = self.delay_timer;
+                    }
+                    0xA => {
+                        if let Some(key) = self.keyboard.iter().position(|&k| k) {
+                            self.v[x] = key as u8;
+                        } else {
+                            self.pc -= 2;
+                        }
+                    }
+                    0x15 => {
+                        self.delay_timer = self.v[x];
+                    }
+                    0x18 => {
+                        self.sound_timer = self.v[x];
+                    }
                     0x1E => {
-                        self.i += self.v[x] as u16;
+                        self.i = self.i.wrapping_add(self.v[x] as u16);
                     }
                     0x29 => {
-                        let digit = self.v[x];
-                        self.i = FONT_BASE + (digit * 5) as u16;
+                        let digit = self.v[x] as u16;
+                        self.i = FONT_BASE + (self.v[x] & 0xF) as u16 * 5;
                     }
                     0x33 => {
                         self.memory[self.i as usize] = self.v[x] / 100;
@@ -239,12 +254,12 @@ impl CPU {
                         self.memory[self.i as usize + 2] = self.v[x] % 10;
                     }
                     0x55 => {
-                        for idx in 0..16 {
+                        for idx in 0..=x {
                             self.memory[self.i as usize + idx] = self.v[idx];
                         }
                     }
                     0x65 => {
-                        for idx in 0..16 {
+                        for idx in 0..=x {
                             self.v[idx] = self.memory[self.i as usize + idx];
                         }
                     }
